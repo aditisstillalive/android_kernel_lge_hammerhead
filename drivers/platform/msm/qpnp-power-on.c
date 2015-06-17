@@ -32,6 +32,11 @@
 #define PMIC8941_V2_REV4	0x02
 #define PON_REV2_VALUE		0x00
 
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE_QPNP_PON
+#include <linux/input/sweep2wake.h>
+#endif
+
+
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
 
@@ -112,6 +117,13 @@
 #define QPNP_PON_MAX_DBC_US			(USEC_PER_SEC * 2)
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
+
+#ifdef CONFIG_PWRKEY_SUSPEND
+bool pwrkey_pressed = false;
+bool pwrkey_suspend = false;
+static int cnt = 0;
+module_param(pwrkey_suspend, bool, 0755);
+#endif
 
 enum pon_type {
 	PON_KPDPWR,
@@ -425,7 +437,18 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	default:
 		return -EINVAL;
 	}
-
+	
+#ifdef CONFIG_PWRKEY_SUSPEND
+	if (pwrkey_suspend) {
+		if (cfg->key_code == KEY_POWER && cnt == 0) {
+			pwrkey_pressed = true;
+			cnt++;
+		} else {
+			cnt = 0;
+		}
+	}
+#endif			
+	
 	input_report_key(pon->pon_input, cfg->key_code,
 					(pon_rt_sts & pon_rt_bit));
 	input_sync(pon->pon_input);
